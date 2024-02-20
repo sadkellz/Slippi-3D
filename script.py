@@ -2,6 +2,11 @@ import bpy
 import json
 from mathutils import Quaternion, Vector
 
+bpy.context.scene.frame_set(0)
+# Get the current frame number
+#current_frame = bpy.context.scene.frame_current
+
+
 # Replace 'PlFxNr_skeleton' with the actual name of your armature object
 skeleton = bpy.data.objects.get('PlFxNr_skeleton')
 
@@ -24,54 +29,62 @@ if skeleton and skeleton.type == 'ARMATURE':
 
     default_transforms = default_transform_data["nodes"][0]["data"]["JOBJ"]
 
-    for frame in replay_data:
-        #char_id = replay_data.get("charID")
-        bones_data = replay_data.get("bones", [])
+    for frame in replay_data[:500]:
+        bones_data = frame.get("bones", [])
         # Iterate through the pose bones and apply transformations to the main tree
         for index, bone_data in enumerate(bones_data):
-            #for index in range(5):
-                bone_name = f'JOBJ_{index}'
-                pose_bone = skeleton.pose.bones.get(bone_name)
-                bone_data = bones_data[index]
-                transform_data = default_transforms[index]
+            bone_name = f'JOBJ_{index}'
+            pose_bone = skeleton.pose.bones.get(bone_name)
+            bone_data = bones_data[index]
+            transform_data = default_transforms[index]
 
-                local_transform = Vector()
-                local_transform.x = (bone_data["posX"] - transform_data["translation_x"])
-                local_transform.y = (bone_data["posY"] - transform_data["translation_y"])
-                local_transform.z = (bone_data["posZ"] - transform_data["translation_z"])
+            local_transform = Vector()
+            local_transform.x = (bone_data["posX"] - transform_data["translation_x"])
+            local_transform.y = (bone_data["posY"] - transform_data["translation_y"])
+            local_transform.z = (bone_data["posZ"] - transform_data["translation_z"])
 
-                local_scale = Vector()
-                local_scale.x = (bone_data["scaleX"] - transform_data["scale_x"])
-                local_scale.y = (bone_data["scaleY"] - transform_data["scale_y"])
-                local_scale.z = (bone_data["scaleZ"] - transform_data["scale_z"])
+            local_scale = Vector()
+            local_scale.x = (bone_data["scaleX"] - transform_data["scale_x"])
+            local_scale.y = (bone_data["scaleY"] - transform_data["scale_y"])
+            local_scale.z = (bone_data["scaleZ"] - transform_data["scale_z"])
+
+            if bone_data["useQuat"] == 0:
+                rotation_mode = 'XYZ'
+                local_rotation = Vector()
+                local_rotation.x = (bone_data["rotX"] - transform_data["rotation_x"])
+                local_rotation.y = (bone_data["rotY"] - transform_data["rotation_y"])
+                local_rotation.z = (bone_data["rotZ"] - transform_data["rotation_z"])
+            else:
+                rotation_mode = 'QUATERNION'
+                local_rotation = Quaternion()
+                local_rotation.x = (bone_data["rotX"] - transform_data["rotation_x"])
+                local_rotation.y = (bone_data["rotY"] - transform_data["rotation_y"])
+                local_rotation.z = (bone_data["rotZ"] - transform_data["rotation_z"])
+                local_rotation.w = bone_data["rotW"]
+
+
+            if pose_bone:
+                pose_bone.rotation_mode = rotation_mode
+                pose_bone.location = (local_transform.x, local_transform.y, local_transform.z)
+                #pose_bone.scale = (local_scale.x, local_scale.y, local_scale.z)
 
                 if bone_data["useQuat"] == 0:
-                    local_rotation = Vector()
-                    local_rotation.x = (bone_data["rotX"] - transform_data["rotation_x"])
-                    local_rotation.y = (bone_data["rotY"] - transform_data["rotation_y"])
-                    local_rotation.z = (bone_data["rotZ"] - transform_data["rotation_z"])
+                    print("euler:", bone_name, local_rotation)
+                    pose_bone.rotation_euler = (local_rotation.x, local_rotation.y, local_rotation.z)
+                    for prop in ['location', 'rotation_euler', 'scale']:
+                        pose_bone.keyframe_insert(data_path=prop)
                 else:
-                    local_rotation = Quaternion()
-                    local_rotation.x = (bone_data["rotX"] - transform_data["rotation_x"])
-                    local_rotation.y = (bone_data["rotY"] - transform_data["rotation_y"])
-                    local_rotation.z = (bone_data["rotZ"] - transform_data["rotation_z"])
-                    local_rotation.w = bone_data["rotW"]
+                    print("quat:", bone_name, local_rotation)
+                    pose_bone.rotation_quaternion = (local_rotation.w, local_rotation.x, local_rotation.y, local_rotation.z)
+                    for prop in ['location', 'rotation_quaternion', 'scale']:
+                        pose_bone.keyframe_insert(data_path=prop)
 
+            else:
+                print(f"Pose bone {bone_name} not found in the armature.")
 
-                if pose_bone:
-                    pose_bone.location = (local_transform.x, local_transform.y, local_transform.z)
-                    if bone_data["useQuat"] == 0:
-                        print("euler:", bone_name, local_rotation)
-                        pose_bone.rotation_euler = (local_rotation.x, local_rotation.y, local_rotation.z)
-                    else:
-                        print("quat:", bone_name, local_rotation)
-                        pose_bone.rotation_quaternion = (local_rotation.w, local_rotation.x, local_rotation.y, local_rotation.z)
-                        pose_bone.rotation_euler = local_rotation.to_euler()
-
-                # print(f"Applied transformations to bone {bone_name}")
-                else:
-                    print(f"Pose bone {bone_name} not found in the armature.")
-
+            # Advance to the next frame
+        bpy.ops.screen.frame_offset(delta=1)
+        
         # Switch back to object mode
         bpy.ops.object.mode_set(mode='OBJECT')
 
