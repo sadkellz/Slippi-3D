@@ -44,9 +44,9 @@ if skeleton and skeleton.type == 'ARMATURE':
             local_transform.z = (bone_data["posZ"] - transform_data["translation_z"])
 
             local_scale = Vector()
-            local_scale.x = (bone_data["scaleX"] - transform_data["scale_x"])
-            local_scale.y = (bone_data["scaleY"] - transform_data["scale_y"])
-            local_scale.z = (bone_data["scaleZ"] - transform_data["scale_z"])
+            local_scale.x = bone_data["scaleX"]
+            local_scale.y = bone_data["scaleY"]
+            local_scale.z = bone_data["scaleZ"]
 
             if bone_data["useQuat"] == 0:
                 rotation_mode = 'XYZ'
@@ -66,7 +66,7 @@ if skeleton and skeleton.type == 'ARMATURE':
             if pose_bone:
                 pose_bone.rotation_mode = rotation_mode
                 pose_bone.location = (local_transform.x, local_transform.y, local_transform.z)
-                #pose_bone.scale = (local_scale.x, local_scale.y, local_scale.z)
+                pose_bone.scale = (local_scale.x, local_scale.y, local_scale.z)
 
                 if bone_data["useQuat"] == 0:
                     print("euler:", bone_name, local_rotation)
